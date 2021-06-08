@@ -1,0 +1,1 @@
+#LAMMPS C-GeM code to be added to the LAMMPS src folder
