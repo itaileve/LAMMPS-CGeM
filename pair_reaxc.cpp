@@ -1061,7 +1061,7 @@ void PairReaxC::CGeM_Minimization(reax_system *system,control_params *control,
 
       for( i = 0; i < system->n; i++ ) {
 	type_i = map[atom->type[i]];
-	if(type_i==12)    {
+	if(strcmp(system->reax_param.sbp[type_i].name,"EL")==0){
 	  atom->v[i][0]=atom->v[i][1]=atom->v[i][2]=0.0;
 	}
       }
@@ -1106,7 +1106,7 @@ void PairReaxC::CGeM_Minimization(reax_system *system,control_params *control,
       
       for( i = 0; i < system->n; i++ ) {
 	type_i = map[atom->type[i]];
-	if(type_i==12)    {
+	if(strcmp(system->reax_param.sbp[type_i].name,"EL")==0){
 	  atom->v[i][0]=atom->v[i][1]=atom->v[i][2]=0.0;
 	}
       }
@@ -1143,10 +1143,7 @@ void PairReaxC::CGeM_Minimization(reax_system *system,control_params *control,
     
     
   }
- 
 }
-
-
 
 double PairReaxC::CGeM_dRij( reax_system *system,int i,int j,int dir,double R)
 {
@@ -1308,15 +1305,19 @@ double PairReaxC::CGeM_Forces(reax_system *system,control_params *control,
   double r_ij,SMALL = 0.0001;
   double Tap,dTap;
   int type_core;
-
+  int i_6, j_6;
   //** electrostatic field
   double deriv_elec;
+
   double *fx_efield;
   double *fy_efield;
   double *fz_efield;
   get_names("fx_efield",fx_efield); 
   get_names("fy_efield",fy_efield);
-  get_names("fz_efield",fz_efield); 
+  get_names("fz_efield",fz_efield);
+  double *E_pot;
+  get_names("E_pot",E_pot); 
+  
   //**
   type_core=0;
   E_elec =0.0;
@@ -1326,7 +1327,7 @@ double PairReaxC::CGeM_Forces(reax_system *system,control_params *control,
 
   natoms = system->n;
   
-  for( i = 0; i < system->N; ++i ) fx_efield[i]=fy_efield[i]=fz_efield[i]=atom->f[i][0]=atom->f[i][1]=atom->f[i][2]=0.0;
+  for( i = 0; i < system->N; ++i ) E_pot[i] = fx_efield[i]=fy_efield[i]=fz_efield[i]=atom->f[i][0]=atom->f[i][1]=atom->f[i][2]=0.0;
   //far_nbrs = (*lists) + FAR_NBRS;
   far_nbrs = lists + FAR_NBRS;
   for( i = 0; i < natoms; ++i ) {
@@ -1384,7 +1385,8 @@ double PairReaxC::CGeM_Forces(reax_system *system,control_params *control,
 	dTap = dTap * r_ij + 2*workspace->Tap[2];
 	dTap = dTap*r_ij + workspace->Tap[1];
 
-	
+	//printf("i=%i type_i=%i j=%i type_j=%i r_ij=%.4f\n",orig_i,type_i,orig_j,type_j,r_ij);
+	//printf("alpha=%.4f gamma=%.4f beta=%.4f \n",twbp->alpha_CGeM,system->reax_param.sbp[type_core].gamma_CGeM,twbp->beta_CGeM);
 	E_elec=(EV_to_KCALpMOL*atom->q[i]*atom->q[j]/(r_ij)*erf(twbp->alpha_CGeM*r_ij));
 	E_Gauss=-(twbp->beta_CGeM*exp(-system->reax_param.sbp[type_core].gamma_CGeM*r_ij*r_ij)) ;
 	E_tot += Tap*KCALpMOL_to_EV*(E_elec+E_Gauss);
@@ -1401,21 +1403,52 @@ double PairReaxC::CGeM_Forces(reax_system *system,control_params *control,
 	atom->f[j][0]-=KCALpMOL_to_EV*deriv*CGeM_dRij(system,i,j,0,r_ij);
 	atom->f[j][1]-=KCALpMOL_to_EV*deriv*CGeM_dRij(system,i,j,1,r_ij);
 	atom->f[j][2]-=KCALpMOL_to_EV*deriv*CGeM_dRij(system,i,j,2,r_ij);
-		
-	fx_efield[i]+=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,0,r_ij);
-	fy_efield[i]+=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,1,r_ij);
-	fz_efield[i]+=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,2,r_ij);
+	//printf("i=%i type_i=%i j=%i type_j=%i r_ij=%.4f\n",orig_i,type_i,orig_j,type_j,r_ij);
+	//printf("E_elec=%.4f E_gauss=%.4f deriv=%.4f Tap=%.4f dTap=%.4f\n",E_elec,E_Gauss,deriv,Tap,dTap);
+	//std::cout<<********<<std::endl;
+	//std::cout<<orig_i<<std::endl;
+	//std::cout<<type_i<<std::endl;
+	//std::cout<<orig_j<<std::endl;
+	//std::cout<<type_j<<std::endl;
+	//std::cout<<r_ij<<std::endl;	
+	//std::cout<<********<<std::endl;
+	//printf("i=%i type_i=%i j=%i type_j=%i r_ij=%.4f\n",orig_i,type_i,orig_j,type_j,r_ij);
+	//printf("f_x=%.8f\n",KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,0,r_ij));
+	//printf("f_y=%.8f\n",KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,1,r_ij));
+	//printf("f_z=%.8f\n",KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,2,r_ij));
+	//printf("erf=%.4f r_ij=%.4f alpha=%.4f value=%.4f\n",erf(twbp->alpha_CGeM*r_ij),r_ij,twbp->alpha_CGeM,atom->q[i]*atom->q[j]/(r_ij)*erf(twbp->alpha_CGeM*r_ij));
+	//printf("Coulomb=%.4f Gauss=%.4f\n",Tap*KCALpMOL_to_EV*E_elec,Tap*KCALpMOL_to_EV*E_Gauss);
+	//printf("Tap=%.4f Cal_to_EV=%.4f EV_to_Cal=%.4f\n",Tap,KCALpMOL_to_EV,EV_to_KCALpMOL);
+	//printf("type_i=%s\n",system->reax_param.sbp[type_i].name);
+	//printf("r_ij=%.8f\n",r_ij);
+	i_6 = int((orig_i-1)/6);
+	j_6 = int((orig_j-1)/6);
 	
-	fx_efield[j]-=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,0,r_ij);
-	fy_efield[j]-=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,1,r_ij);
-	fz_efield[j]-=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,2,r_ij);
+	if (i_6 != j_6){
+	  //printf("In loop i=%i j=%i\n",orig_i,orig_j);
+	  fx_efield[i]+=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,0,r_ij);
+	  fy_efield[i]+=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,1,r_ij);
+	  fz_efield[i]+=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,2,r_ij);
+	  
+	  fx_efield[j]-=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,0,r_ij);
+	  fy_efield[j]-=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,1,r_ij);
+	  fz_efield[j]-=KCALpMOL_to_EV*deriv_elec*CGeM_dRij(system,i,j,2,r_ij);
+	  E_pot[i] += Tap*KCALpMOL_to_EV*(E_elec+E_Gauss);
+	  E_pot[j] += Tap*KCALpMOL_to_EV*(E_elec+E_Gauss);
+	}
 	
       }
     }
   }
+  i=0;
+  while (i < system->N){
+    //printf("i=%i  type=%i fx=%.4f fy=%.4f fz=%.4f\n",i,map[atom->type[i]],atom->f[i][0],atom->f[i][1],atom->f[i][2]);
+    i++;  
+  }
 
-  return(E_tot);
+return(E_tot);
 }
+
 void PairReaxC::get_names(char *c,double *&ptr)
 {
   int index,flag;

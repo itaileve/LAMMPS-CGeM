@@ -4,12 +4,15 @@
 units		real
 
 atom_style	charge
-read_data	data.tmp
 
-pair_style	reax/c lmp_control checkqeq no lgvdw yes
-pair_coeff	* * ffield.reax.eReaxFF  H O EL Cl Na Ca I
+read_data       data.water_cluster #input file
+
+pair_style	reax/c NULL checkqeq no lgvdw yes            #Specify to utilize the ReaxFF with the lgvdW correction
+pair_coeff	* * ffield.reax.eReaxFF  H O EL Cl Na Ca I   #Specify the ReaxFF/C-GeM parameter file
 
 compute reax all pair reax/c 
+
+#Define variables for the ReaxFF energy terms, this is required to print the individual terms
 
 variable eb      equal c_reax[1]
 variable ea      equal c_reax[2]
@@ -29,22 +32,28 @@ variable eqeq    equal c_reax[14]
 neighbor        2.2 bin #distance
 neigh_modify    every 4 delay 0 check yes page 120000 one 12000 #frequency to update nblist, here every step
 
-fix		1 all nve
+group cores type  1 2 4 5 6 7
+group shells type 3
 
-group cores type 1 2 4 5 6 7
-fix             23 all property/atom d_fx_efield d_fy_efield d_fz_efield ghost yes  
-fix 5 cores setforce 0.0 0.0 0.0 #fix the cores, all the forces are 0. 
-min_style cg #min of the shells with congugate gradient
-minimize 1.0e-8 0.0 10000 10000 #min for shell
-unfix 5 #unfix
+#fix             1 all property/atom d_fx_efield d_fy_efield d_fz_efield ghost yes
+fix              1 all property/atom d_fx_efield d_fy_efield d_fz_efield d_E_pot ghost yes
 
-compute         1 cores temp
-thermo          1
-thermo_style    custom step  etotal v_ep v_ew v_eb v_elp v_ev v_ea 
-#dump            1 all custom 1 dump.lammpstrj type q x y z
-dump            1 all custom 1 dump.lammpstrj type q x y z d_fx_efield d_fy_efield d_fz_efield
-dump_modify     1 sort id
+fix 2 cores setforce 0.0 0.0 0.0                         #fix the cores, all the forces are 0. 
+min_style cg                                             #min of the shells with congugate gradient
+minimize 1.0e-8 0.0 10000 10000                          #min for shell
+unfix 2 #unfix
+
+fix            3 cores nvt temp 300 300 100              #Define NVT dynamics for the cores, Temp=300K
+fix            4 shells nvt temp 1 1 100                 #Define NVT dynamics for the shells, Temp=1K
+
+compute         1 cores  temp                            #Define to compute the temp of the cores  c_1
+compute         2 shells temp                            #Define to compute the temp of the shells c_2
+
+thermo          10                                       #Frequency to output system properties  
+thermo_style    custom step  etotal v_ep c_1 c_2                 #Output system properties
+dump            1 all custom 10 dump.lammpstrj type q x y z #Define output dump file "dump.lammpstrj"
+dump_modify     1 sort id                                #Specify to print atoms in the same order
 
 
-timestep	0.25
-run		1000
+timestep	0.25                                     #MD timestep
+run		10000                                     #number of iterations in MD 
