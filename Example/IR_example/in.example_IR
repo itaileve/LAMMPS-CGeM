@@ -1,0 +1,84 @@
+# ReaxFF/C-GeM example water
+# .....
+
+units		real
+
+atom_style	charge
+
+read_data       data.water_cluster #input file
+
+pair_style	reax/c NULL checkqeq no lgvdw yes            #Specify to utilize the ReaxFF with the lgvdW correction
+pair_coeff	* * ffield.reax.eReaxFF  H O EL Cl Na Ca I   #Specify the ReaxFF/C-GeM parameter file
+
+compute reax all pair reax/c 
+
+#Define variables for the ReaxFF energy terms, this is required to print the individual terms
+
+variable eb      equal c_reax[1]
+variable ea      equal c_reax[2]
+variable elp     equal c_reax[3]
+variable emol    equal c_reax[4]
+variable ev      equal c_reax[5]
+variable epen    equal c_reax[6]
+variable ecoa    equal c_reax[7]
+variable ehb     equal c_reax[8]
+variable et      equal c_reax[9]
+variable eco     equal c_reax[10]
+variable ew      equal c_reax[11]
+variable ep      equal c_reax[12]
+variable efi     equal c_reax[13]
+variable eqeq    equal c_reax[14] 
+
+neighbor        2.2 bin #distance
+neigh_modify    every 4 delay 0 check yes page 120000 one 12000 #frequency to update nblist, here every step
+
+group cores type  1 2 4 5 6 7
+group shells type 3
+
+#fix             1 all property/atom d_fx_efield d_fy_efield d_fz_efield ghost yes
+fix              1 all property/atom d_fx_efield d_fy_efield d_fz_efield d_E_pot ghost yes
+
+fix 2 cores setforce 0.0 0.0 0.0                         #fix the cores, all the forces are 0. 
+min_style cg                                             #min of the shells with congugate gradient
+minimize 1.0e-8 0.0 10000 10000                          #min for shell
+unfix 2 #unfix
+
+fix            3 cores nvt temp 130 130 100              #Define NVT dynamics for the cores, Temp=300K
+fix            4 shells nvt temp 1 1 100                 #Define NVT dynamics for the shells, Temp=1K
+
+compute         1 cores  temp                            #Define to compute the temp of the cores  c_1
+compute         2 shells temp                            #Define to compute the temp of the shells c_2
+
+thermo          10                                       #Frequency to output system properties  
+thermo_style    custom step  etotal v_ep c_1 c_2                 #Output system properties
+dump            1 all custom 10 dump.lammpstrj type q x y z #Define output dump file "dump.lammpstrj"
+dump_modify     1 sort id                                #Specify to print atoms in the same order
+
+fix             5 all momentum 1 linear 1 1 1 angular     #fix system center of mass 
+
+# run equilibration
+
+timestep	0.25                                     #MD timestep
+run		10000                                     #number of iterations in MD
+
+# calculate dipole moment to output file "dipole.txt"
+
+compute            3 all property/atom q xu yu zu
+variable           dipolex atom c_3[1]*c_3[2]
+variable           dipoley atom c_3[1]*c_3[3]
+variable           dipolez atom c_3[1]*c_3[4]
+compute            4 all reduce sum v_dipolex
+compute            5 all reduce sum v_dipoley
+compute            6 all reduce sum v_dipolez
+variable           totaldipolex equal c_4
+variable           totaldipoley equal c_5
+variable           totaldipolez equal c_6
+variable           mytime equal step*dt
+fix                printdipole all ave/time 1 1 2 v_mytime v_totaldipolex v_totaldipoley v_totaldipolez file dipole.txt mode scalar format %.10f
+
+
+timestep   0.25
+
+run 100000
+
+

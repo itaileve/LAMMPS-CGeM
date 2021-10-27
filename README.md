@@ -62,8 +62,19 @@ Masses
 4   35.453 #Cl
 5   22.99  #Na
 6   40.078 #Ca
-7   126.90447 #I  
+7   126.90447 #I
 
+################################################################################################################################
+
+Instructions for calculating IR spectra
+
+1. Go to the example_IR folder
+2. Run the ReaxFF/C-GeM simulation with "./lmp_mpi < in.example_IR"
+3. The simulation will output the dipole.txt file
+4. run "python calc-ir-spectra.py"
+5. Check output files for the IR spectrum
+
+*The calc-ir-spectra.py code is taken from "https://github.com/EfremBraun/calc-ir-spectra-from-lammps", please cite this reference if you are using this code
 
 
 
